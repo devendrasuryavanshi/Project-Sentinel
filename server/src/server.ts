@@ -1,19 +1,19 @@
 import app from "./app";
 import { EnvConfig } from "./config/env.config";
-import { MongoConnection } from "./database/mongo.connection";
-import { RedisConnection } from "./database/redis.connection";
+import { connectToMongoDB } from "./database/mongo.connection";
+import redis from "./database/redis.connection";
+import { logger } from "./utils/logger";
 
-const start = async () => {
+const startServer = async () => {
   try {
-    await MongoConnection.connect();
-    RedisConnection.getInstance();// redis init
+    await connectToMongoDB();
     app.listen(EnvConfig.PORT, () => {
-      console.log(`Server running on port ${EnvConfig.PORT}`);
+      logger.info(`Server started on port ${EnvConfig.PORT}`);
     });
   } catch (error) {
-    console.error("Startup failed:", error);
+    logger.error("Startup failed: " + error);
     process.exit(1);
   }
 };
 
-start();
+startServer();

@@ -1,0 +1,69 @@
+export const TIME = {
+  MILLISECOND: 1,
+  SECOND: 1000,
+  MINUTE: 60 * 1000,
+  HOUR: 60 * 60 * 1000,
+  DAY: 24 * 60 * 60 * 1000,
+} as const;
+
+export const RATE_LIMIT = {
+  API_WINDOW_MS: 15 * TIME.MINUTE,
+  API_MAX_REQUESTS: 100,
+} as const;
+
+export const SESSION = {
+  INACTIVE_RETENTION_DAYS: 90,
+  EXPIRE_SOON_DAYS: 1,
+  REDIS_TTL_SECONDS: 15 * 60,
+  ACTIVITY_DB_UPDATE_INTERVAL_MS: 5 * TIME.MINUTE,
+  MAX_INACTIVE_SESSIONS: 5,
+  REFRESH_TOKEN_EXPIRES_DAYS: 7,
+} as const;
+
+export const RISK = {
+  IP_VELOCITY_WINDOW_SECONDS: 10 * 60,
+  IP_VELOCITY_THRESHOLD: 5,
+
+  SCORE_IP_VELOCITY: 80,
+  SCORE_NEW_DEVICE: 30,
+  SCORE_GEO_JUMP: 50,
+  SCORE_IMPOSSIBLE_TRAVEL: 100,
+
+  MAX_TRAVEL_SPEED_KMPH: 800,
+  OTP_SCORE_THRESHOLD: 40,
+} as const;
+
+export const SESSION_STATUS = {
+  ACTIVE: "active",
+  INACTIVE: "inactive",
+  REVOKED: "revoked",
+} as const;
+
+export enum OtpVerificationResultReason {
+  OTP_EXPIRED_OR_NOT_FOUND = "OTP_EXPIRED_OR_NOT_FOUND",
+  OTP_IP_MISMATCH = "OTP_IP_MISMATCH",
+  OTP_INCORRECT = "OTP_INCORRECT",
+  OTP_VALID = "OTP_VALID",
+}
+
+export const AUTH = {
+  MAX_ACTIVE_SESSIONS: 3,
+
+  ACCESS_TOKEN_TTL_MS: 15 * TIME.MINUTE,
+  REFRESH_TOKEN_TTL_MS: 7 * TIME.DAY,
+
+  TEMP_SESSION_ID: "TEMP_SESSION",
+
+  UNKNOWN_DEVICE: "Unknown Device",
+  UNKNOWN_USER_AGENT: "Unknown User Agent",
+  UNKNOWN_ACCEPT_LANGUAGE: "Unknown Accept Language",
+} as const;
+
+export const OTP = {
+  LENGTH: 6,
+  TTL_SECONDS: 5 * 60,
+} as const;
+
+export const JWT = {
+  ACCESS_TOKEN_EXPIRES_IN: "15m",
+} as const;

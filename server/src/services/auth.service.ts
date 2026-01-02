@@ -2,8 +2,8 @@ import jwt from "jsonwebtoken";
 import { EnvConfig } from "../config/env.config";
 import { IUser } from "../models/user.model";
 import redis from "../database/redis.connection";
-import { OtpVerificationResultReason } from "../common/enums/otp.enum";
 import { generateNumericOtp, generateRandomToken } from "../utils/crypto.utils";
+import { JWT, OTP, OtpVerificationResultReason } from "../config/constants";
 
 /**
  * Generates a One-Time Password (OTP) and stores it in Redis.
@@ -17,7 +17,7 @@ export const generateAndStoreOtp = async (
   identifier: string,
   ipAddress: string
 ): Promise<string> => {
-  const oneTimePassword = generateNumericOtp(6);
+  const oneTimePassword = generateNumericOtp(OTP.LENGTH);
 
   const otpPayload = JSON.stringify({
     otp: oneTimePassword,
@@ -26,7 +26,7 @@ export const generateAndStoreOtp = async (
   });
 
   // Expire in 5 minutes
-  await redis.set(`otp:${identifier}`, otpPayload, "EX", 300); 
+  await redis.set(`otp:${identifier}`, otpPayload, "EX", OTP.TTL_SECONDS); 
   return oneTimePassword;
 };
 
@@ -93,7 +93,7 @@ export const generateAuthTokens = (user: IUser, sessionId: string) => {
   const accessToken = jwt.sign(
     { sub: user._id, role: user.role, sessionId },
     EnvConfig.JWT_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: JWT.ACCESS_TOKEN_EXPIRES_IN }
   );
   
   const refreshToken = generateRandomToken();

@@ -15,25 +15,38 @@ const FALLBACK_LOCATION: GeoLocation = {
  * @param {string} ipAddress - The IP address to resolve.
  * @returns {Promise<GeoLocation>} A promise resolving to the geo location associated with the IP address.
  */
-export const getGeoLocationFromIp = async (ipAddress: string): Promise<GeoLocation> => {
+export const getGeoLocationFromIp = async (
+  ipAddress: string
+): Promise<GeoLocation> => {
   if (!ipAddress || ipAddress === "::1" || ipAddress === "127.0.0.1") {
     return FALLBACK_LOCATION;
   }
 
   try {
-    const response = await axios.get(`http://ip-api.com/json/${ipAddress}`, {
+    const response = await axios.get(`https://ipinfo.io/${ipAddress}/json`, {
       timeout: 2000,
       validateStatus: () => true,
     });
 
     const data: any = response?.data;
-    if (!data || data?.status !== "success") return FALLBACK_LOCATION;
+
+    if (!data || data.error || typeof data.loc !== "string") {
+      return FALLBACK_LOCATION;
+    }
+
+    const [lat, lon] = data.loc.split(",").map(Number);
 
     return {
-      city: typeof data.city === "string" && data.city.trim() ? data.city : FALLBACK_LOCATION.city,
-      country: typeof data.country === "string" && data.country.trim() ? data.country : FALLBACK_LOCATION.country,
-      latitude: typeof data.lat === "number" ? data.lat : FALLBACK_LOCATION.latitude,
-      longitude: typeof data.lon === "number" ? data.lon : FALLBACK_LOCATION.longitude,
+      city:
+        typeof data.city === "string" && data.city.trim()
+          ? data.city
+          : FALLBACK_LOCATION.city,
+      country:
+        typeof data.country === "string" && data.country.trim()
+          ? data.country
+          : FALLBACK_LOCATION.country,
+      latitude: Number.isFinite(lat) ? lat : FALLBACK_LOCATION.latitude,
+      longitude: Number.isFinite(lon) ? lon : FALLBACK_LOCATION.longitude,
     };
   } catch {
     return FALLBACK_LOCATION;
@@ -67,7 +80,8 @@ export const calculateTravelMetrics = (
   travelSpeedKilometersPerHour: number;
   timeDifferenceHours: number;
 } => {
-  const convertDegreesToRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const convertDegreesToRadians = (degrees: number) =>
+    (degrees * Math.PI) / 180;
 
   const latDiff = convertDegreesToRadians(endLatitude - startLatitude);
   const lonDiff = convertDegreesToRadians(endLongitude - startLongitude);
@@ -78,7 +92,12 @@ export const calculateTravelMetrics = (
       Math.cos(convertDegreesToRadians(endLatitude)) *
       Math.sin(lonDiff / 2) ** 2;
 
-  const centralAngle = 2 * Math.atan2(Math.sqrt(haversineComponent), Math.sqrt(1 - haversineComponent));
+  const centralAngle =
+    2 *
+    Math.atan2(
+      Math.sqrt(haversineComponent),
+      Math.sqrt(1 - haversineComponent)
+    );
   const distanceInKilometers = EARTH_RADIUS_IN_KILOMETERS * centralAngle;
 
   const timeDifferenceMs = endTimestamp.getTime() - startTimestamp.getTime();
@@ -93,7 +112,8 @@ export const calculateTravelMetrics = (
     };
   }
 
-  const travelSpeedKilometersPerHour = distanceInKilometers / timeDifferenceHours;
+  const travelSpeedKilometersPerHour =
+    distanceInKilometers / timeDifferenceHours;
 
   return {
     distanceInKilometers,

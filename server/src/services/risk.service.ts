@@ -1,7 +1,11 @@
+import { RISK } from "../config/constants";
 import redis from "../database/redis.connection";
 import { buildSuspiciousLoginEmail } from "../helpers/email-templates/suspicious-login.template";
 import { SessionModel } from "../models/session.model";
-import { calculateTravelMetrics, getGeoLocationFromIp } from "../utils/geo.utils";
+import {
+  calculateTravelMetrics,
+  getGeoLocationFromIp,
+} from "../utils/geo.utils";
 import { sendEmail } from "./email.service";
 
 export interface RiskResult {
@@ -11,18 +15,20 @@ export interface RiskResult {
 
 /**
  * Evaluate the risk of a login attempt.
- * @param {string} userId - The ID of the user.
- * @param {string} userEmail - The email of the user.
- * @param {string} ip - The IP address of the login attempt.
- * @param {string} fingerprint - The device fingerprint of the login attempt.
- * @param {string} userAgent - The User-Agent of the login attempt.
- * @returns {Promise<RiskResult>} - A promise resolving to an object containing the risk score and whether an OTP is required.
- * The risk score is calculated based on the following factors:
- * - IP velocity (80 points if the IP has been seen more than 5 times in the past 10 minutes)
- * - New device (30 points if the device has not been seen before)
- * - Geo-jump (50 points if the login attempt is from a different country than the previous login attempt)
- * - Travel speed (100 points if the travel speed between the previous and current login attempts is greater than 800 km/h)
- * If the risk score is greater than 40, an OTP is required.
+ * Risk scoring rules:
+ * - IP velocity: +80 if IP is seen more than 5 times in 10 minutes
+ * - New device: +30 if device fingerprint not seen before
+ * - Geo-jump: +50 if country changes
+ * - Impossible travel: +100 if speed exceeds 800 km/h
+ * - OTP required if score > 40
+ *
+ * @param {string} userId - The ID of the user
+ * @param {string} userEmail - The email of the user
+ * @param {string} ip - The IP address of the login attempt
+ * @param {string} fingerprint - The device fingerprint of the login attempt
+ * @param {string} userAgent - The User-Agent of the login attempt
+ *
+ * @returns {Promise<RiskResult>}
  */
 export const evaluateLoginRisk = async (
   userId: string,
@@ -37,17 +43,30 @@ export const evaluateLoginRisk = async (
   // IP velocity
   const key = `risk:ip:${ip}`;
   const count = await redis.incr(key);
-  if (count === 1) await redis.expire(key, 600);
-  if (count > 5) score += 80;
+  if (count === 1) {
+    await redis.expire(key, RISK.IP_VELOCITY_WINDOW_SECONDS);
+  }
+  if (count > RISK.IP_VELOCITY_THRESHOLD) {
+    score += RISK.SCORE_IP_VELOCITY;
+  }
 
   // new device
-  const hasDevice = await SessionModel.findOne({ userId, deviceFingerprint: fingerprint });
-  if (!hasDevice) score += 30;
+  const hasDevice = await SessionModel.findOne({
+    userId,
+    deviceFingerprint: fingerprint,
+  });
+  if (!hasDevice) {
+    score += RISK.SCORE_NEW_DEVICE;
+  }
 
   // geo-jump
-  const last = await SessionModel.findOne({ userId }).sort({ lastActiveAt: -1 });
-  if (last && last.ipAddress !== ip) {
-    if (last.location.country !== geo.country) score += 50;
+  const last = await SessionModel.findOne({ userId }).sort({
+    lastActiveAt: -1,
+  });
+  if (last && last.ipLastSeen !== ip) {
+    if (last.location.country !== geo.country) {
+      score += RISK.SCORE_GEO_JUMP;
+    }
 
     const metrics = calculateTravelMetrics(
       last.location.latitude,
@@ -58,8 +77,8 @@ export const evaluateLoginRisk = async (
       new Date()
     );
 
-    if (metrics.travelSpeedKilometersPerHour >= 800) {
-      score += 100;
+    if (metrics.travelSpeedKilometersPerHour >= RISK.MAX_TRAVEL_SPEED_KMPH) {
+      score += RISK.SCORE_IMPOSSIBLE_TRAVEL;
       const content = buildSuspiciousLoginEmail({
         userEmail,
         ipAddress: ip,
@@ -74,5 +93,5 @@ export const evaluateLoginRisk = async (
     }
   }
 
-  return { score, requiresOtp: score > 40 };
+  return { score, requiresOtp: score > RISK.OTP_SCORE_THRESHOLD };
 };

@@ -20,6 +20,7 @@ import {
   getActiveSessionsCount,
 } from "../services/session.service";
 import { logger } from "../utils/logger";
+import { AUTH } from "../config/constants";
 
 export class AuthController {
   /**
@@ -83,6 +84,12 @@ export class AuthController {
   static async login(request: Request, response: Response): Promise<Response> {
     const { email, password, otp: providedOtp } = request.body;
 
+    if (!email || !password) {
+      return response
+        .status(400)
+        .json({ message: "Email and password are required" });
+    }
+
     const foundUser = await UserModel.findOne({ email });
     if (!foundUser || !(await comparePassword(password, foundUser.password))) {
       return response.status(401).json({ message: "Invalid credentials" });
@@ -92,7 +99,7 @@ export class AuthController {
       foundUser._id.toString()
     );
 
-    if (totalActiveSessionCounts >= 3) {
+    if (totalActiveSessionCounts >= AUTH.MAX_ACTIVE_SESSIONS) {
       return response.status(403).json({
         message:
           "Maximum active sessions reached. Please logout from other devices to continue.",
@@ -121,7 +128,7 @@ export class AuthController {
     else {
       logger.info("login risk for user: " + foundUser.email);
       const userAgentHeader =
-        request.headers["user-agent"]?.toString() ?? "Unknown Device";
+        request.headers["user-agent"]?.toString() ?? AUTH.UNKNOWN_DEVICE;
 
       const riskEvaluation = await evaluateLoginRisk(
         foundUser._id.toString(),
@@ -156,15 +163,16 @@ export class AuthController {
     }
 
     const geoLocation = await getGeoLocationFromIp(clientIpAddress);
+    logger.info("geo location for user login: " + JSON.stringify(geoLocation));
     const temporaryTokenPlaceholder = generateAuthTokens(
       foundUser,
-      "TEMP_SESSION"
+      AUTH.TEMP_SESSION_ID
     ).refreshToken;
 
     const createdSession = await createUserSession(
       foundUser._id.toString(),
       clientIpAddress,
-      request.headers["user-agent"]?.toString() ?? "Unknown User Agent",
+      request.headers["user-agent"]?.toString() ?? AUTH.UNKNOWN_USER_AGENT,
       deviceFingerprint,
       geoLocation,
       temporaryTokenPlaceholder
@@ -178,14 +186,14 @@ export class AuthController {
     response.cookie("accessToken", finalAuthTokens.accessToken, {
       httpOnly: true,
       secure: false,
-      maxAge: 15 * 60 * 1000,
+      maxAge: AUTH.ACCESS_TOKEN_TTL_MS,
     });
 
     response.cookie("refreshToken", finalAuthTokens.refreshToken, {
       httpOnly: true,
       secure: false,
       path: "/api/auth/refresh",
-      maxAge: 7 * 24 * 3600 * 1000,
+      maxAge: AUTH.REFRESH_TOKEN_TTL_MS,
     });
 
     foundUser.isVerified = true;

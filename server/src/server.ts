@@ -3,6 +3,7 @@ import { EnvConfig } from "./config/env.config";
 import { connectToMongoDB } from "./database/mongo.connection";
 import redis from "./database/redis.connection";
 import { logger } from "./utils/logger";
+import "./types";
 
 const startServer = async () => {
   try {

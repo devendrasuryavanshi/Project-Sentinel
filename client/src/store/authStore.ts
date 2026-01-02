@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { authApi } from "../api/auth";
 
 interface User {
   id: string;
@@ -25,9 +26,15 @@ export const useAuthStore = create<AuthState>()(
         set({ user, isAuthenticated: true });
       },
 
-      logout: () => {
-        set({ user: null, isAuthenticated: false });
-        localStorage.removeItem("auth-storage");
+      logout: async () => {
+        try {
+          await authApi.logout();
+          set({ user: null, isAuthenticated: false });
+          localStorage.removeItem("auth-storage");
+        } catch (error) {
+          console.error("Logout failed at server level:", error);
+          throw error;
+        }
       },
     }),
     {

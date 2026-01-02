@@ -89,13 +89,16 @@ export const verifyOneTimePassword = async (
  * @param {string} sessionId - The session identifier.
  * @returns {Promise<{ accessToken: string; refreshToken: string }>} A promise containing the access and refresh tokens.
  */
-export const generateAuthTokens = (user: IUser, sessionId: string) => {
+export const generateAccessToken = (user: IUser, sessionId: string) => {
   const accessToken = jwt.sign(
-    { sub: user._id, role: user.role, sessionId },
+    { userId: user._id, role: user.role, sessionId },
     EnvConfig.JWT_SECRET,
     { expiresIn: JWT.ACCESS_TOKEN_EXPIRES_IN }
   );
-  
-  const refreshToken = generateRandomToken();
-  return { accessToken, refreshToken };
+
+  return accessToken;
+};
+
+export const generateRefreshToken = (): string => {
+  return generateRandomToken();
 };

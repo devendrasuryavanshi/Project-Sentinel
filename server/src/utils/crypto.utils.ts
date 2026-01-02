@@ -2,6 +2,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { Request } from "express";
 import { EnvConfig } from "../config/env.config";
+import { UAParser } from "ua-parser-js";
 
 /**
  * Hash a plain text password using bcrypt.
@@ -13,17 +14,79 @@ export const hashPassword = async (password: string): Promise<string> => {
 /**
  * Compare a plain text password with a hash.
  */
-export const comparePassword = async (password: string, hash: string): Promise<boolean> => {
+export const comparePassword = async (
+  password: string,
+  hash: string
+): Promise<boolean> => {
   return bcrypt.compare(password, hash);
 };
 
 /**
- * Generate a device fingerprint based on User-Agent and Language.
+ * Generate a stable SHA-256 device fingerprint from a request object.
+ *
+ * The fingerprint source components (in order) are:
+ *  - browser name (from user-agent)
+ *  - OS name (from user-agent)
+ *  - raw user-agent (for extra entropy)
+ *  - accept-language
+ *  - accept-encoding
+ *  - viewport-width (if present)
+ *  - time-zone / timezone / x-timezone (if present)
+ *  - x-forwarded-for (if present)
+ *
+ * All values are normalized (trim + collapse whitespace) and concatenated with
+ * a pipe separator before hashing.
+ *
+ * @param request - Incoming HTTP request
+ * @returns hex-encoded SHA-256 fingerprint string
  */
 export const generateDeviceFingerprint = (request: Request): string => {
-  const userAgent = request.headers["user-agent"] || "";
-  const acceptLanguage = request.headers["accept-language"] || "";
-  return crypto.createHash("sha256").update(`${userAgent}${acceptLanguage}`).digest("hex");
+  const headers = request?.headers ?? {};
+
+  // Primary: user-agent
+  const uaRaw = (getHeader(headers, "user-agent") || "").toString();
+
+  // Parse UA for browser and os (falls back to empty strings if parsing fails)
+  const parsedHeaders = new UAParser(uaRaw);
+  const browserName = (parsedHeaders?.getBrowser?.().name || "").toString();
+  const osName = (parsedHeaders?.getOS?.().name || "").toString();
+
+  const acceptLanguage = getHeader(headers, "accept-language") || "";
+  const acceptEncoding = getHeader(headers, "accept-encoding") || "";
+  const viewportWidth =
+    getHeader(headers, "viewport-width") ||
+    getHeader(headers, "sec-ch-viewport-width") ||
+    "";
+  const timeZone =
+    getHeader(headers, "time-zone") ||
+    getHeader(headers, "timezone") ||
+    getHeader(headers, "x-time-zone") ||
+    getHeader(headers, "x-timezone") ||
+    "";
+  const xForwardedFor = getHeader(headers, "x-forwarded-for") || "";
+
+  const normalize = (v: string) => v.replace(/\s+/g, " ").trim();
+
+  const parts = [
+    browserName,
+    osName,
+    uaRaw,
+    acceptLanguage,
+    acceptEncoding,
+    viewportWidth,
+    timeZone,
+    xForwardedFor,
+  ].map(normalize).filter(Boolean);
+
+  const source = parts.join("|");
+
+  return crypto.createHash("sha256").update(source).digest("hex");
+};
+
+export const getHeader = (headers: any, name: string): string => {
+  if (!headers) return "";
+  if (typeof headers.get === "function") return headers.get(name) || "";
+  return headers[name.toLowerCase()] || headers[name] || "";
 };
 
 /**

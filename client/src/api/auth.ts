@@ -17,28 +17,39 @@ export interface AuthResponse {
 }
 
 export const authApi = {
-/**
- * Authenticates an existing user using password and optional OTP.
- * 
- * @param {LoginPayload} data - Contains email and password, with optional OTP.
- * @returns {Promise<AuthResponse>} JSON response from the backend.
- * @throws {Error} On invalid credentials, expired session, or other errors.
- */
+  /**
+   * Authenticates an existing user using password and optional OTP.
+   * 
+   * @param {LoginPayload} data - Contains email and password, with optional OTP.
+   * @returns {Promise<AuthResponse>} JSON response from the backend.
+   * @throws {Error} On invalid credentials, expired session, or other errors.
+   */
   login: async (data: LoginPayload) => {
     const response = await client.post<AuthResponse>("/user/auth/login", data);
     return response.data;
   },
 
-/**
- * Registers a new user, hashes their password, and sends an email OTP for verification.
- * @param {Omit<LoginPayload, "otp">} data - Contains email and password, without OTP.
- * @returns {Promise<AuthResponse>} JSON response from the backend.
- */
+  /**
+   * Registers a new user, hashes their password, and sends an email OTP for verification.
+   * @param {Omit<LoginPayload, "otp">} data - Contains email and password, without OTP.
+   * @returns {Promise<AuthResponse>} JSON response from the backend.
+   */
   register: async (data: Omit<LoginPayload, "otp">) => {
     const response = await client.post<AuthResponse>(
       "/user/auth/register",
       data
     );
+    return response.data;
+  },
+
+  /**
+   * Logs out the current user and revokes their session.
+   *
+   * @returns {Promise<AuthResponse>} JSON response from the backend.
+   * @throws {Error} On invalid credentials, expired session, or other errors.
+   */
+  logout: async () => {
+    const response = await client.post("/user/auth/logout");
     return response.data;
   },
 };

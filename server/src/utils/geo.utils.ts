@@ -1,5 +1,8 @@
 import axios from "axios";
 import { GeoLocation } from "../types/global";
+import { GEO_CACHE_PREFIX, GEO_CACHE_TTL_SECONDS } from "../config/constants";
+import redis from "../database/redis.connection";
+import { logger } from "./logger";
 
 const EARTH_RADIUS_IN_KILOMETERS = 6371;
 const FALLBACK_LOCATION: GeoLocation = {
@@ -11,15 +14,34 @@ const FALLBACK_LOCATION: GeoLocation = {
 
 /**
  * Retrieves the geo location associated with a given IP address.
- * If the IP address is invalid or cannot be resolved, returns a fallback location.
- * @param {string} ipAddress - The IP address to resolve.
- * @returns {Promise<GeoLocation>} A promise resolving to the geo location associated with the IP address.
+ *
+ * Flow:
+ * 1. Reject local / invalid IPs early
+ * 2. Check Redis cache
+ * 3. Fallback to external GeoIP provider
+ * 4. Cache the resolved location
+ *
+ * If resolution fails at any point, a fallback location is returned.
+ *
+ * @param ipAddress - The IP address to resolve
+ * @returns A promise resolving to the geo location
  */
 export const getGeoLocationFromIp = async (
   ipAddress: string
 ): Promise<GeoLocation> => {
   if (!ipAddress || ipAddress === "::1" || ipAddress === "127.0.0.1") {
     return FALLBACK_LOCATION;
+  }
+
+  const cacheKey = `${GEO_CACHE_PREFIX}${ipAddress}`;
+
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached) as GeoLocation;
+    }
+  } catch {
+    logger.warn(`Failed to retrieve cached geo location for IP ${ipAddress}`);
   }
 
   try {
@@ -36,7 +58,7 @@ export const getGeoLocationFromIp = async (
 
     const [lat, lon] = data.loc.split(",").map(Number);
 
-    return {
+    const location: GeoLocation = {
       city:
         typeof data.city === "string" && data.city.trim()
           ? data.city
@@ -48,6 +70,19 @@ export const getGeoLocationFromIp = async (
       latitude: Number.isFinite(lat) ? lat : FALLBACK_LOCATION.latitude,
       longitude: Number.isFinite(lon) ? lon : FALLBACK_LOCATION.longitude,
     };
+
+    try {
+      await redis.set(
+        cacheKey,
+        JSON.stringify(location),
+        "EX",
+        GEO_CACHE_TTL_SECONDS,
+      );
+    } catch {
+      logger.warn(`Failed to cache geo location for IP ${ipAddress}`);
+    }
+
+    return location;
   } catch {
     return FALLBACK_LOCATION;
   }

@@ -26,6 +26,7 @@ export interface ISession extends Document {
 const SessionSchema: Schema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   refreshToken: { type: String, required: true },
+  refreshTokenExpiry: { type: Date },
   deviceFingerprint: { type: String, required: true },
   ipFirstSeen: { type: String, required: true },
   ipLastSeen: { type: String, required: true },
@@ -47,7 +48,7 @@ const SessionSchema: Schema = new Schema({
   isSuspicious: { type: Boolean, default: false },
   is_legacy: { type: Boolean, default: false },
   expireAt: { type: Date },// for deletion (TTL)
-});
+}, { timestamps: true });
 
 // TTL deletion
 SessionSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });

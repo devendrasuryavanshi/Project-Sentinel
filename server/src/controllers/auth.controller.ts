@@ -7,8 +7,9 @@ import {
 } from "../utils/crypto.utils";
 import { extractClientIpAddress } from "../utils/network.utils";
 import {
+  generateAccessToken,
   generateAndStoreOtp,
-  generateAuthTokens,
+  generateRefreshToken,
   verifyOneTimePassword,
 } from "../services/auth.service";
 import { buildLoginOtpEmailContent } from "../helpers/email-templates/otp-login.template";
@@ -18,9 +19,11 @@ import { getGeoLocationFromIp } from "../utils/geo.utils";
 import {
   createUserSession,
   getActiveSessionsCount,
+  deactivateUserSession,
 } from "../services/session.service";
 import { logger } from "../utils/logger";
 import { AUTH } from "../config/constants";
+import { EnvConfig } from "../config/env.config";
 
 export class AuthController {
   /**
@@ -164,10 +167,8 @@ export class AuthController {
 
     const geoLocation = await getGeoLocationFromIp(clientIpAddress);
     logger.info("geo location for user login: " + JSON.stringify(geoLocation));
-    const temporaryTokenPlaceholder = generateAuthTokens(
-      foundUser,
-      AUTH.TEMP_SESSION_ID
-    ).refreshToken;
+    const refreshToken = generateRefreshToken();
+    console.log("Generated refresh token: " + refreshToken);
 
     const createdSession = await createUserSession(
       foundUser._id.toString(),
@@ -175,24 +176,23 @@ export class AuthController {
       request.headers["user-agent"]?.toString() ?? AUTH.UNKNOWN_USER_AGENT,
       deviceFingerprint,
       geoLocation,
-      temporaryTokenPlaceholder
+      refreshToken
     );
 
-    const finalAuthTokens = generateAuthTokens(
+    const accessToken = generateAccessToken(
       foundUser,
       createdSession._id.toString()
     );
 
-    response.cookie("accessToken", finalAuthTokens.accessToken, {
+    response.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: false,
+      secure: EnvConfig.NODE_ENV === "production",
       maxAge: AUTH.ACCESS_TOKEN_TTL_MS,
     });
 
-    response.cookie("refreshToken", finalAuthTokens.refreshToken, {
+    response.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false,
-      path: "/api/auth/refresh",
+      secure: EnvConfig.NODE_ENV === "production",
       maxAge: AUTH.REFRESH_TOKEN_TTL_MS,
     });
 
@@ -206,5 +206,24 @@ export class AuthController {
         role: foundUser.role,
       },
     });
+  }
+
+  static async logout(request: Request, response: Response): Promise<Response> {
+    logger.info("Logging out user");
+    try {
+      const sessionId = request.sessionId;
+      if (!sessionId) {
+        return response
+          .status(400)
+          .json({ message: "No active session found" });
+      }
+
+      await deactivateUserSession(sessionId);
+      response.clearCookie("accessToken");
+      response.clearCookie("refreshToken");
+      return response.json({ message: "Logout successful" });
+    } catch (error) {
+      return response.status(500).json({ message: "Logout failed" });
+    }
   }
 }

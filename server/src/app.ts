@@ -3,7 +3,9 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import { EnvConfig } from "./config/env.config";
 import router from "./routes/route";
-import { apiRateLimiter } from "./middlewares/rateLimiter";
+import { apiRateLimiter } from "./middlewares/rateLimiter.middleware";
+import { authenticate } from "./middlewares/auth.middleware";
+import "./types";
 
 const app = express();
 
@@ -14,6 +16,10 @@ app.use(cors({ origin: EnvConfig.CLIENT_URL, credentials: true }));
 app.use(apiRateLimiter);
 
 app.use("/api", router);
+
+app.get("/secure-test", authenticate, (req, res) => {
+  res.send("authenticate middleware is working");
+});
 
 app.get("/", (req, res) => {
   res.send("Hello World");

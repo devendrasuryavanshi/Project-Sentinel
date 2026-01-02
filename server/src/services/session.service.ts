@@ -4,6 +4,8 @@ import { GeoLocation } from "../types/global";
 import { hashToken } from "../utils/crypto.utils";
 import { TIME, SESSION, SESSION_STATUS } from "../config/constants";
 import { getGeoLocationFromIp } from "../utils/geo.utils";
+import { tryCatch } from "bullmq";
+import { logger } from "../utils/logger";
 
 /**
  * Creates a new session for a given user.
@@ -85,6 +87,7 @@ export const createUserSession = async (
     refreshKey,
     JSON.stringify({
       sessionId: newSession._id.toString(),
+      refreshTokenExpiry: newSession.refreshTokenExpiry,
       deviceFingerprint,
       ipLastSeen: ipAddress,
       ipLastChangedAt: null,
@@ -129,38 +132,31 @@ export const getActiveSessionsCount = async (
  * @returns {Promise<boolean>} Resolves to true if the refresh token is valid and active,
  * false if the token or session is invalid or expired.
  */
-export const verifyAndUpdateSessionActivity = async (
+export const verifyAndUpdateUserSessionActivity = async (
   refreshToken: string,
   currentIp: string
-): Promise<boolean> => {
+): Promise<ISession | null> => {
   const redisKey = `refresh:${refreshToken}`;
   const now = Date.now();
+
+  logger.info(`Verifying session for refresh token: ${refreshToken}`);
+  logger.info(`Current IP: ${currentIp}`);
 
   // Attempt to resolve session from Redis first; fall back to MongoDB if cache is missing
   const cached = await redis.get(redisKey);
   let session;
   if (!cached) {
-    session = await SessionModel.findOne(
-      {
-        refreshToken,
-        status: SESSION_STATUS.ACTIVE,
-      },
-      {
-        sessionId: 1,
-        refreshTokenExpiry: 1,
-        deviceFingerprint: 1,
-        ipLastSeen: 1,
-        ipLastChangedAt: 1,
-        lastActiveAt: 1,
-      }
-    ).lean();
+    session = await SessionModel.findOne({
+      refreshToken,
+      status: SESSION_STATUS.ACTIVE,
+    }).lean();
   } else {
     session = cached ? JSON.parse(cached) : null;
   }
 
   // No active session found
   if (!session) {
-    return false;
+    return null;
   }
 
   let shouldUpdateDb = false;
@@ -168,6 +164,11 @@ export const verifyAndUpdateSessionActivity = async (
 
   // Determine whether MongoDB requires an update
   ipChanged = session.ipLastSeen !== currentIp;
+
+  logger.info(`IP changed: ${ipChanged}`);
+  logger.info(`Last seen IP: ${session.ipLastSeen}`);
+  logger.info(`Current IP: ${currentIp}`);
+  logger.info('session: ' + JSON.stringify(session));
 
   if (
     !session.lastActiveAt ||
@@ -181,13 +182,16 @@ export const verifyAndUpdateSessionActivity = async (
     (new Date(session.refreshTokenExpiry).getTime() - now) / 1000
   );
 
+  logger.info(`Remaining second: ${remainingSeconds} seconds`);
+
   // Refresh token expired: revoke session in both Redis and MongoDB
   if (remainingSeconds <= 0) {
+    logger.info('deleting expired session');
     await redis.del(redisKey);
     await SessionModel.findByIdAndUpdate(session.sessionId, {
       status: SESSION_STATUS.INACTIVE,
     });
-    return false;
+    return null;
   }
 
   // Compute sliding Redis TTL, capped by refresh token expiry
@@ -198,6 +202,7 @@ export const verifyAndUpdateSessionActivity = async (
     redisKey,
     JSON.stringify({
       sessionId: session.sessionId,
+      refreshTokenExpiry: session.refreshTokenExpiry,
       deviceFingerprint: session.deviceFingerprint,
       ipLastSeen: currentIp,
       ipLastChangedAt: ipChanged ? now : (session.ipLastChangedAt ?? null),
@@ -209,7 +214,7 @@ export const verifyAndUpdateSessionActivity = async (
 
   // Skip MongoDB update if no persistence-relevant changes occurred
   if (!shouldUpdateDb && !ipChanged) {
-    return true;
+    return session;
   }
 
   const update: any = {
@@ -233,5 +238,39 @@ export const verifyAndUpdateSessionActivity = async (
 
   await SessionModel.findByIdAndUpdate(session.sessionId, update);
 
-  return true;
+  return session;
+};
+
+/**
+ * Revoke a session by setting its status to "revoked" and removing
+ * its corresponding refresh token from Redis.
+ * @param {string} sessionId - The ID of the session to revoke.
+ * @returns {Promise<void>} A promise that resolves when the revocation is complete.
+ */
+export const revokeUserSession = async (sessionId: string): Promise<void> => {
+  const session = await SessionModel.findOneAndUpdate(
+    { _id: sessionId },
+    { status: SESSION_STATUS.REVOKED }
+  );
+  // redis cleanup
+  if (session) {
+    await redis.del(`refresh:${session.refreshToken}`);
+  }
+};
+
+/**
+ * Sets a session's status to "inactive" and removes its
+ * corresponding refresh token from Redis.
+ *
+ * @param {string} sessionId - The ID of the session to set as inactive.
+ * @returns {Promise<void>} A promise that resolves when the session is set as inactive.
+ */
+export const deactivateUserSession = async (sessionId: string): Promise<void> => {
+  const session = await SessionModel.findOneAndUpdate(
+    { _id: sessionId },
+    { status: SESSION_STATUS.INACTIVE }
+  );
+  if(session) {
+    await redis.del(`refresh:${session.refreshToken}`);
+  }
 };

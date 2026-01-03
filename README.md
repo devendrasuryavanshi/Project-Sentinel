@@ -119,7 +119,7 @@ The system includes a hardcoded `SUPER_ADMIN_EMAIL` in the environment variables
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/sentinel.git
+https://github.com/devendrasuryavanshi/Project-Sentinel
 cd sentinel
 ```
 

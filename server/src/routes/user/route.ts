@@ -8,5 +8,9 @@ const router = Router();
 
 router.use("/auth", authRouter);
 router.get('/me', authenticate, UserController.getUserForAuth);
+router.get("/profile", authenticate, UserController.getProfile);
+router.get("/sessions/history", authenticate, UserController.getSessionHistory);
+router.delete("/sessions", authenticate, UserController.revokeSession);
+router.delete("/sessions/others", authenticate, UserController.revokeAllOtherSessions);
 
 export default router;

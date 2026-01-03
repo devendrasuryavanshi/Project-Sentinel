@@ -33,22 +33,27 @@ export const createUserSession = async (
   refreshToken: string,
   isLegacy: boolean = false
 ) => {
-  const inactiveSessions = await SessionModel.find({
+  const staleSessions = await SessionModel.find({
     userId,
-    status: SESSION_STATUS.INACTIVE,
-  }).sort({ lastActiveAt: -1 });
+    status: {
+      $in: [SESSION_STATUS.INACTIVE, SESSION_STATUS.REVOKED],
+    },
+  })
+    .select("_id refreshToken")
+    .sort({ lastActiveAt: -1 });
 
   /**
-   * If the user has more than 5 inactive sessions, the oldest inactive sessions
+   * If the user has more than 5 stale sessions, the oldest inactive sessions
    * are updated to expire within 24 hours or at the 90-day mark.
    */
-  if (inactiveSessions.length > SESSION.MAX_INACTIVE_SESSIONS) {
-    const sessionsOverflow = inactiveSessions.slice(4);
+  if (staleSessions.length > SESSION.MAX_RETAINED_INACTIVE_SESSIONS) {
+    const sessionsOverflow = staleSessions.slice(
+      SESSION.MAX_RETAINED_INACTIVE_SESSIONS - 1
+    );
+    const retentionMs = SESSION.INACTIVE_RETENTION_DAYS * TIME.DAY; // 90 days
 
     for (const session of sessionsOverflow) {
       const lastActiveAt = session.lastActiveAt;
-      const retentionMs = SESSION.INACTIVE_RETENTION_DAYS * TIME.DAY; // 90 days
-
       const timeSinceLastActive = Date.now() - new Date(lastActiveAt).getTime();
 
       /**
@@ -170,7 +175,7 @@ export const verifyAndUpdateUserSessionActivity = async (
   logger.info(`IP changed: ${ipChanged}`);
   logger.info(`Last seen IP: ${session.ipLastSeen}`);
   logger.info(`Current IP: ${currentIp}`);
-  logger.info('session: ' + JSON.stringify(session));
+  logger.info("session: " + JSON.stringify(session));
 
   if (
     !session.lastActiveAt ||
@@ -188,7 +193,7 @@ export const verifyAndUpdateUserSessionActivity = async (
 
   // Refresh token expired: revoke session in both Redis and MongoDB
   if (remainingSeconds <= 0) {
-    logger.info('deleting expired session');
+    logger.info("deleting expired session");
     await redis.del(redisKey);
     await SessionModel.findByIdAndUpdate(session.sessionId, {
       status: SESSION_STATUS.INACTIVE,
@@ -207,7 +212,7 @@ export const verifyAndUpdateUserSessionActivity = async (
       refreshTokenExpiry: session.refreshTokenExpiry,
       fingerprint: session.fingerprint,
       ipLastSeen: currentIp,
-      ipLastChangedAt: ipChanged ? now : (session.ipLastChangedAt ?? null),
+      ipLastChangedAt: ipChanged ? now : session.ipLastChangedAt ?? null,
       lastActiveAt: now,
     }),
     "EX",
@@ -267,24 +272,26 @@ export const revokeUserSession = async (sessionId: string): Promise<void> => {
  * @param {string} sessionId - The ID of the session to set as inactive.
  * @returns {Promise<void>} A promise that resolves when the session is set as inactive.
  */
-export const deactivateUserSession = async (sessionId: string): Promise<void> => {
+export const deactivateUserSession = async (
+  sessionId: string
+): Promise<void> => {
   const session = await SessionModel.findOneAndUpdate(
     { _id: sessionId },
     { status: SESSION_STATUS.INACTIVE }
   );
-  if(session) {
+  if (session) {
     await redis.del(`refresh:${session.refreshToken}`);
   }
 };
 
-export const udpateIsSuspicious = async (sessionId: string, isSuspicious: boolean) => {
+export const udpateIsSuspicious = async (
+  sessionId: string,
+  isSuspicious: boolean
+) => {
   try {
-    await SessionModel.updateOne(
-      { _id: sessionId },
-      { isSuspicious }
-    );
+    await SessionModel.updateOne({ _id: sessionId }, { isSuspicious });
   } catch (error) {
     logger.error(error);
     throw new Error("Failed to update isSuspicious status");
   }
-}
+};

@@ -17,7 +17,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  isAuthenticated: false,
+  isAuthenticated: true,
 
   /**
    * Hydrates the auth store by making a request to the /me endpoint.

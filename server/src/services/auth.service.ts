@@ -19,13 +19,15 @@ import { JWT, OTP, OtpVerificationResultReason } from "../config/constants";
  */
 export const generateAndStoreOtp = async (
   identifier: string,
-  ipAddress: string
+  ipAddress: string,
+  fingerprint: string
 ): Promise<string> => {
   const oneTimePassword = generateNumericOtp(OTP.LENGTH);
 
   const otpPayload = JSON.stringify({
     otp: hashOTP(oneTimePassword),
     ipAddress,
+    fingerprint,
     createdAt: Date.now(),
   });
 
@@ -46,6 +48,7 @@ export const generateAndStoreOtp = async (
 export const verifyOneTimePassword = async (
   identifier: string,
   ipAddress: string,
+  fingerprint: string,
   providedOtp: string
 ): Promise<{
   success: boolean;
@@ -60,15 +63,24 @@ export const verifyOneTimePassword = async (
     };
   }
 
-  const { otp, ipAddress: storedIp } = JSON.parse(rawData);
+  const {
+    otp,
+    ipAddress: storedIp,
+    fingerprint: storedFingerprint,
+  } = JSON.parse(rawData);
 
+  if (storedFingerprint !== fingerprint) {
+    return {
+      success: false,
+      reason: OtpVerificationResultReason.OTP_FINGERPRINT_MISMATCH,
+    };
+  }
   if (storedIp !== ipAddress) {
     return {
       success: false,
       reason: OtpVerificationResultReason.OTP_IP_MISMATCH,
     };
   }
-
   if (otp !== hashOTP(providedOtp)) {
     return {
       success: false,
@@ -81,7 +93,6 @@ export const verifyOneTimePassword = async (
     redis.del(`otp:${identifier}`),
     UserModel.updateOne({ _id: identifier }, { $set: { riskScore: 0 } }),
   ]);
-
   return {
     success: true,
     reason: OtpVerificationResultReason.OTP_VALID,

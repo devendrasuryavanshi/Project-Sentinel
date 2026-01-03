@@ -5,6 +5,7 @@ export interface ISession extends Document {
   refreshToken: string;
   refreshTokenExpiry?: Date;
   deviceFingerprint: string;
+  deviceName?: string;
   ipFirstSeen: string;
   ipLastSeen: string;
   ipLastChangedAt?: Date;
@@ -19,7 +20,7 @@ export interface ISession extends Document {
   lastActiveAt: Date;
   status: "active" | "inactive" | "revoked";
   isSuspicious: boolean;
-  is_legacy?: boolean;
+  isLegacy?: boolean;
   expireAt?: Date;
 }
 
@@ -28,6 +29,7 @@ const SessionSchema: Schema = new Schema({
   refreshToken: { type: String, required: true },
   refreshTokenExpiry: { type: Date },
   deviceFingerprint: { type: String, required: true },
+  deviceName: { type: String },
   ipFirstSeen: { type: String, required: true },
   ipLastSeen: { type: String, required: true },
   ipLastChangedAt: { type: Date },
@@ -46,7 +48,7 @@ const SessionSchema: Schema = new Schema({
     default: "active",
   },
   isSuspicious: { type: Boolean, default: false },
-  is_legacy: { type: Boolean, default: false },
+  isLegacy: { type: Boolean, default: false },
   expireAt: { type: Date },// for deletion (TTL)
 }, { timestamps: true });
 

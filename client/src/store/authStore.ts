@@ -1,9 +1,7 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import { authApi } from "../api/auth";
 
 interface User {
-  id: string;
   email: string;
   role: "user" | "admin";
   riskScore?: number;
@@ -12,34 +10,48 @@ interface User {
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  hydrate: () => Promise<void>;
   login: (user: User) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      isAuthenticated: false,
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: null,
+  isAuthenticated: false,
 
-      login: (user: User) => {
-        set({ user, isAuthenticated: true });
-      },
+  /**
+   * Hydrates the auth store by making a request to the /me endpoint.
+   * If the request is successful, the user data is stored in the store and
+   * isAuthenticated is set to true.
+   * If the request fails, the attempts counter is incremented and the request
+   * is retried up to a maximum of 2 attempts.
+   * If all attempts fail, the user data is set to null and isAuthenticated is set to false.
+   * @returns {Promise<void>} A promise that resolves when the store has been hydrated.
+   */
+  hydrate: async () => {
+    if (get().user) return;
 
-      logout: async () => {
-        try {
-          await authApi.logout();
-          set({ user: null, isAuthenticated: false });
-          localStorage.removeItem("auth-storage");
-        } catch (error) {
-          console.error("Logout failed at server level:", error);
-          throw error;
-        }
-      },
-    }),
-    {
-      name: "auth-storage", // unique name in localStorage
-      storage: createJSONStorage(() => localStorage), // uses localStorage
+    let attempts = 0;
+
+    while (attempts < 2) {
+      try {
+        const data = await authApi.me();
+        set({ user: data, isAuthenticated: true });
+        return;
+      } catch {
+        attempts++;
+      }
     }
-  )
-);
+
+    set({ user: null, isAuthenticated: false });
+  },
+
+  login: (user: User) => {
+    set({ user, isAuthenticated: true });
+  },
+
+  logout: async () => {
+    await authApi.logout();
+    set({ user: null, isAuthenticated: false });
+  },
+}));

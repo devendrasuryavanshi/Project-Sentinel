@@ -1,8 +1,12 @@
 import jwt from "jsonwebtoken";
 import { EnvConfig } from "../config/env.config";
-import { IUser } from "../models/user.model";
+import { IUser, UserModel } from "../models/user.model";
 import redis from "../database/redis.connection";
-import { generateNumericOtp, generateRandomToken } from "../utils/crypto.utils";
+import {
+  generateNumericOtp,
+  generateRandomToken,
+  hashOTP,
+} from "../utils/crypto.utils";
 import { JWT, OTP, OtpVerificationResultReason } from "../config/constants";
 
 /**
@@ -20,13 +24,13 @@ export const generateAndStoreOtp = async (
   const oneTimePassword = generateNumericOtp(OTP.LENGTH);
 
   const otpPayload = JSON.stringify({
-    otp: oneTimePassword,
+    otp: hashOTP(oneTimePassword),
     ipAddress,
     createdAt: Date.now(),
   });
 
   // Expire in 5 minutes
-  await redis.set(`otp:${identifier}`, otpPayload, "EX", OTP.TTL_SECONDS); 
+  await redis.set(`otp:${identifier}`, otpPayload, "EX", OTP.TTL_SECONDS);
   return oneTimePassword;
 };
 
@@ -65,15 +69,18 @@ export const verifyOneTimePassword = async (
     };
   }
 
-  if (otp !== providedOtp) {
+  if (otp !== hashOTP(providedOtp)) {
     return {
       success: false,
       reason: OtpVerificationResultReason.OTP_INCORRECT,
     };
   }
 
-  // OTP verified successfully, remove it
-  await redis.del(`otp:${identifier}`);
+  // OTP verified successfully, remove it, reset risk score
+  await Promise.all([
+    redis.del(`otp:${identifier}`),
+    UserModel.updateOne({ _id: identifier }, { $set: { riskScore: 0 } }),
+  ]);
 
   return {
     success: true,
@@ -91,7 +98,7 @@ export const verifyOneTimePassword = async (
  */
 export const generateAccessToken = (user: IUser, sessionId: string) => {
   const accessToken = jwt.sign(
-    { userId: user._id, role: user.role, sessionId },
+    { userEmail: user.email, role: user.role, sessionId },
     EnvConfig.JWT_SECRET,
     { expiresIn: JWT.ACCESS_TOKEN_EXPIRES_IN }
   );

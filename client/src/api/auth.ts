@@ -8,7 +8,6 @@ export interface LoginPayload {
 
 export interface AuthResponse {
   user?: {
-    id: string;
     email: string;
     role: "user" | "admin";
   };
@@ -16,10 +15,15 @@ export interface AuthResponse {
   message?: string;
 }
 
+export interface meResponse {
+  email: string;
+  role: "user" | "admin";
+}
+
 export const authApi = {
   /**
    * Authenticates an existing user using password and optional OTP.
-   * 
+   *
    * @param {LoginPayload} data - Contains email and password, with optional OTP.
    * @returns {Promise<AuthResponse>} JSON response from the backend.
    * @throws {Error} On invalid credentials, expired session, or other errors.
@@ -50,6 +54,17 @@ export const authApi = {
    */
   logout: async () => {
     const response = await client.post("/user/auth/logout");
+    return response.data;
+  },
+
+  /**
+   * Retrieves the current user's information.
+   *
+   * @returns {Promise<AuthResponse>} JSON response from the backend containing the user data.
+   * @throws {Error} On invalid credentials, expired session, or other errors.
+   */
+  me: async (): Promise<meResponse> => {
+    const response = await client.get<meResponse>("/user/me");
     return response.data;
   },
 };

@@ -111,3 +111,12 @@ export const generateNumericOtp = (length: number = 6): string => {
   const max = Math.pow(10, length) - 1;
   return crypto.randomInt(min, max).toString();
 };
+
+/**
+ * Hash a One-Time Password (OTP) using SHA256.
+ * @param {string} otp - One-Time Password to hash.
+ * @returns {string} SHA256 hash of the OTP.
+ */
+export const hashOTP = (otp: string): string => {
+  return crypto.createHash("sha256").update(otp).digest("hex");
+}

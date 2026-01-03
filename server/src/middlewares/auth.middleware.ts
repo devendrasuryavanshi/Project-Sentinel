@@ -14,6 +14,7 @@ import {
 import {
   createUserSession,
   revokeUserSession,
+  udpateIsSuspicious,
   verifyAndUpdateUserSessionActivity,
 } from "../services/session.service";
 import { sendEmail } from "../services/email.service";
@@ -63,8 +64,8 @@ export const authenticate = async (
 
     logger.info(`Decoded access token: ${JSON.stringify(decodedAccessToken)}`);
 
-    const user: IUser | null = await UserModel.findById(
-      decodedAccessToken.userId
+    const user: IUser | null = await UserModel.findOne(
+      {email: decodedAccessToken.userEmail}
     ).select("-password");
 
     if (!user) {
@@ -79,7 +80,7 @@ export const authenticate = async (
      */
     if (!decodedAccessToken.sessionId) {
       logger.warn(
-        `Legacy token detected for user ${decodedAccessToken.userId}. Migrating session.`
+        `Legacy token detected for user ${decodedAccessToken.userEmail}. Migrating session.`
       );
 
       const geoLocation = await getGeoLocationFromIp(clientIp);
@@ -107,7 +108,7 @@ export const authenticate = async (
         newSession._id.toString()
       );
 
-      request.user = { id: user._id.toString(), role: user.role };
+      request.user = { email: user.email, role: user.role };
       request.sessionId = newSession._id.toString();
         response.cookie("accessToken", newAccessToken, {
         httpOnly: true,
@@ -172,6 +173,7 @@ export const authenticate = async (
       await Promise.all([
         sendEmail(user.email, content.subject, content.html),
         revokeUserSession(sessionId),
+        udpateIsSuspicious(sessionId, true),
       ]);
 
       return response
@@ -226,11 +228,13 @@ export const authenticate = async (
             { _id: user._id },
             { $inc: { riskScore: 40 } }
           ),
+          udpateIsSuspicious(sessionId, true),
         ]);
       }
     }
 
-    request.user = { id: user._id.toString(), role: user.role };
+    logger.info("Authentication successful");
+    request.user = { email: user.email, role: user.role };
     request.sessionId = sessionId;
 
     next();

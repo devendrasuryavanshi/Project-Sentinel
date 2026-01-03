@@ -59,6 +59,7 @@ export const AUTH = {
   UNKNOWN_DEVICE: "Unknown Device",
   UNKNOWN_USER_AGENT: "Unknown User Agent",
   UNKNOWN_ACCEPT_LANGUAGE: "Unknown Accept Language",
+  MAX_RISK_SCORE: 75,
 } as const;
 
 export const OTP = {

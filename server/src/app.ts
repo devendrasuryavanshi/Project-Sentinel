@@ -6,6 +6,7 @@ import router from "./routes/route";
 import { apiRateLimiter } from "./middlewares/rateLimiter.middleware";
 import { authenticate } from "./middlewares/auth.middleware";
 import "./types";
+import { autoGenerateAccessToken } from "./middlewares/token.middleware";
 
 const app = express();
 
@@ -13,7 +14,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(cors({ origin: EnvConfig.CLIENT_URL, credentials: true }));
 
-app.use(apiRateLimiter);
+app.use(apiRateLimiter, autoGenerateAccessToken);
 
 app.use("/api", router);
 

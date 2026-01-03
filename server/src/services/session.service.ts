@@ -6,6 +6,7 @@ import { TIME, SESSION, SESSION_STATUS } from "../config/constants";
 import { getGeoLocationFromIp } from "../utils/geo.utils";
 import { tryCatch } from "bullmq";
 import { logger } from "../utils/logger";
+import { getDeviceName } from "../helpers/helper";
 
 /**
  * Creates a new session for a given user.
@@ -71,6 +72,7 @@ export const createUserSession = async (
     userId,
     userAgent,
     deviceFingerprint,
+    deviceName: getDeviceName(userAgent),
     ipFirstSeen: ipAddress,
     ipLastSeen: ipAddress,
     ipChangeCount: 0,
@@ -80,7 +82,7 @@ export const createUserSession = async (
       Date.now() + SESSION.REFRESH_TOKEN_EXPIRES_DAYS * TIME.DAY
     ),
     status: SESSION_STATUS.ACTIVE,
-    is_legacy: isLegacy,
+    isLegacy: isLegacy,
   });
 
   await redis.set(
@@ -274,3 +276,15 @@ export const deactivateUserSession = async (sessionId: string): Promise<void> =>
     await redis.del(`refresh:${session.refreshToken}`);
   }
 };
+
+export const udpateIsSuspicious = async (sessionId: string, isSuspicious: boolean) => {
+  try {
+    await SessionModel.updateOne(
+      { _id: sessionId },
+      { isSuspicious }
+    );
+  } catch (error) {
+    logger.error(error);
+    throw new Error("Failed to update isSuspicious status");
+  }
+}

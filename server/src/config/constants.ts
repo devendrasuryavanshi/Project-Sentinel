@@ -31,6 +31,8 @@ export const RISK = {
 
   MAX_TRAVEL_SPEED_KMPH: 800,
   OTP_SCORE_THRESHOLD: 40,
+  USER_RISK_SCORE_MAX: 40,
+  SCORE_USER_RISK: 60,
 } as const;
 
 export const SESSION_STATUS = {

@@ -2,6 +2,7 @@ import { RISK } from "../config/constants";
 import redis from "../database/redis.connection";
 import { buildSuspiciousLoginEmail } from "../helpers/email-templates/suspicious-login.template";
 import { SessionModel } from "../models/session.model";
+import { UserModel } from "../models/user.model";
 import {
   calculateTravelMetrics,
   getGeoLocationFromIp,
@@ -60,20 +61,20 @@ export const evaluateLoginRisk = async (
   }
 
   // geo-jump
-  const last = await SessionModel.findOne({ userId }).sort({
-    lastActiveAt: -1,
-  });
-  if (last && last.ipLastSeen !== ip) {
-    if (last.location.country !== geo.country) {
+  const lastSession = await SessionModel.findOne({ userId })
+    .sort({ lastActiveAt: -1 })
+    .select("ipLastSeen location lastActiveAt");
+  if (lastSession && lastSession.ipLastSeen !== ip) {
+    if (lastSession.location.country !== geo.country) {
       score += RISK.SCORE_GEO_JUMP;
     }
 
     const metrics = calculateTravelMetrics(
-      last.location.latitude,
-      last.location.longitude,
+      lastSession.location.latitude,
+      lastSession.location.longitude,
       geo.latitude,
       geo.longitude,
-      last.lastActiveAt,
+      lastSession.lastActiveAt,
       new Date()
     );
 
@@ -91,6 +92,10 @@ export const evaluateLoginRisk = async (
       });
       await sendEmail(userEmail, content.subject, content.html);
     }
+  }
+  const user = await UserModel.findById(userId).select("riskScore");
+  if (user && user.riskScore > RISK.USER_RISK_SCORE_MAX) {
+    score += RISK.SCORE_USER_RISK;
   }
 
   return { score, requiresOtp: score > RISK.OTP_SCORE_THRESHOLD };

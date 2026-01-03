@@ -21,7 +21,7 @@ export const SESSION = {
 } as const;
 
 export const RISK = {
-  IP_VELOCITY_WINDOW_SECONDS: 60 * 60,
+  IP_VELOCITY_WINDOW_SECONDS: 12 * 60 * 60, // 12 hours
   IP_VELOCITY_THRESHOLD: 5,
 
   SCORE_IP_VELOCITY: 80,
@@ -33,6 +33,10 @@ export const RISK = {
   OTP_SCORE_THRESHOLD: 40,
   USER_RISK_SCORE_MAX: 40,
   SCORE_USER_RISK: 60,
+  
+  NEW_DEVICE_WINDOW_SECONDS: 12 * 60 * 60, // 24 hours
+  NEW_DEVICE_THRESHOLD: 5,
+  SCORE_FINGERPRINT_VELOCITY: 80,
 } as const;
 
 export const SESSION_STATUS = {
@@ -63,6 +67,7 @@ export const AUTH = {
   UNKNOWN_USER_AGENT: "Unknown User Agent",
   UNKNOWN_ACCEPT_LANGUAGE: "Unknown Accept Language",
   MAX_RISK_SCORE: 75,
+  USER_RISK_SCORE_MAX: 20,
 } as const;
 
 export const OTP = {

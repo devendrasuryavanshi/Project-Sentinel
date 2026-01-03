@@ -234,6 +234,13 @@ export class AuthController {
           userAgentHeader
         );
 
+        if(riskEvaluation.score > AUTH.USER_RISK_SCORE_MAX) {
+          await UserModel.updateOne(
+            { _id: foundUser._id },
+            { $set: { riskScore: Math.min(riskEvaluation.score, 100) } }
+          );
+        }
+
         if (riskEvaluation.requiresOtp || !foundUser.isVerified) {
           const generatedOtp = await generateAndStoreOtp(
             foundUser._id.toString(),

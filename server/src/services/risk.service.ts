@@ -42,13 +42,23 @@ export const evaluateLoginRisk = async (
   const geo = await getGeoLocationFromIp(ip);
 
   // IP velocity
-  const key = `risk:ip:${ip}`;
-  const count = await redis.incr(key);
-  if (count === 1) {
-    await redis.expire(key, RISK.IP_VELOCITY_WINDOW_SECONDS);
+  const ipRiskKey = `risk:ip:${ip}`;
+  const ipRisk = await redis.incr(ipRiskKey);
+  if (ipRisk === 1) {
+    await redis.expire(ipRiskKey, RISK.IP_VELOCITY_WINDOW_SECONDS);
   }
-  if (count > RISK.IP_VELOCITY_THRESHOLD) {
+  if (ipRisk > RISK.IP_VELOCITY_THRESHOLD) {
     score += RISK.SCORE_IP_VELOCITY;
+  }
+
+  // fingerprint velocity
+  const fingerprintRiskKey = `risk:fingerprint:${fingerprint}`;
+  const fingerprintRisk = await redis.incr(fingerprintRiskKey);
+  if (fingerprintRisk === 1) {
+    await redis.expire(fingerprintRiskKey, RISK.NEW_DEVICE_WINDOW_SECONDS);
+  }
+  if (fingerprintRisk > RISK.NEW_DEVICE_THRESHOLD) {
+    score += RISK.SCORE_FINGERPRINT_VELOCITY;
   }
 
   // new device

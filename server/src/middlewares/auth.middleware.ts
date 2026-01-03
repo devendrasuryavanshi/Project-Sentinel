@@ -6,14 +6,14 @@ import { IUser, UserModel } from "../models/user.model";
 import { ISession } from "../models/session.model";
 import { logger } from "../utils/logger";
 import { extractClientIpAddress } from "../utils/network.utils";
-import { generateDeviceFingerprint, hashToken } from "../utils/crypto.utils";
+import { hashToken } from "../utils/crypto.utils";
 import {
   calculateTravelMetrics,
   getGeoLocationFromIp,
 } from "../utils/geo.utils";
 import {
   createUserSession,
-  revokeUserSession,
+  revokeUserSessionAndMarkAsSuspicious,
   udpateIsSuspicious,
   verifyAndUpdateUserSessionActivity,
 } from "../services/session.service";
@@ -170,8 +170,7 @@ export const authenticate = async (
 
       await Promise.all([
         sendEmail(user.email, content.subject, content.html),
-        revokeUserSession(sessionId),
-        udpateIsSuspicious(sessionId, true),
+        revokeUserSessionAndMarkAsSuspicious(sessionId),
       ]);
 
       return response

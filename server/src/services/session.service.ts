@@ -249,15 +249,17 @@ export const verifyAndUpdateUserSessionActivity = async (
 };
 
 /**
- * Revoke a session by setting its status to "revoked" and removing
- * its corresponding refresh token from Redis.
+ * Revokes a user session and marks it as suspicious.
+ * Revokes the session in both Redis and MongoDB, and sets the "isSuspicious" flag to true.
  * @param {string} sessionId - The ID of the session to revoke.
- * @returns {Promise<void>} A promise that resolves when the revocation is complete.
+ * @returns {Promise<void>} Fulfilled when the session has been revoked and marked as suspicious.
  */
-export const revokeUserSession = async (sessionId: string): Promise<void> => {
+export const revokeUserSessionAndMarkAsSuspicious = async (
+  sessionId: string,
+): Promise<void> => {
   const session = await SessionModel.findOneAndUpdate(
     { _id: sessionId },
-    { status: SESSION_STATUS.REVOKED }
+    { status: SESSION_STATUS.REVOKED, isSuspicious: true }
   );
   // redis cleanup
   if (session) {
@@ -275,12 +277,17 @@ export const revokeUserSession = async (sessionId: string): Promise<void> => {
 export const deactivateUserSession = async (
   sessionId: string
 ): Promise<void> => {
-  const session = await SessionModel.findOneAndUpdate(
-    { _id: sessionId },
-    { status: SESSION_STATUS.INACTIVE }
-  );
-  if (session) {
-    await redis.del(`refresh:${session.refreshToken}`);
+  try {
+    const session = await SessionModel.findOneAndUpdate(
+      { _id: sessionId },
+      { status: SESSION_STATUS.INACTIVE }
+    );
+    if (session) {
+      await redis.del(`refresh:${session.refreshToken}`);
+    }
+  } catch (error) {
+    logger.error(error);
+    throw new Error("Failed to deactivate session");
   }
 };
 

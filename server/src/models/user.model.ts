@@ -16,4 +16,8 @@ const UserSchema: Schema = new Schema({
   riskScore: { type: Number, default: 0 },
 }, { timestamps: true });
 
+// INDEXES
+// Optimization for Admin Dashboard sorting (High Risk first, then Newest)
+UserSchema.index({ riskScore: -1, createdAt: -1 });
+
 export const UserModel = mongoose.model<IUser>('User', UserSchema);

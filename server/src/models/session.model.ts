@@ -52,7 +52,19 @@ const SessionSchema: Schema = new Schema({
   expireAt: { type: Date },// for deletion (TTL)
 }, { timestamps: true });
 
-// TTL deletion
+// INDEXES
+
+// TTL Auto-Deletion
 SessionSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
+
+// Refresh Token Lookup
+SessionSchema.index({ refreshToken: 1 });
+
+// User Session Lookups 
+// Optimized for sorting by lastActiveAt descending
+SessionSchema.index({ userId: 1, lastActiveAt: -1 });
+
+// Status Filter
+SessionSchema.index({ userId: 1, status: 1 });
 
 export const SessionModel = mongoose.model<ISession>("Session", SessionSchema);

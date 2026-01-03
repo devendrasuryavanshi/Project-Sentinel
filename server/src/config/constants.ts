@@ -8,7 +8,7 @@ export const TIME = {
 
 export const RATE_LIMIT = {
   API_WINDOW_MS: 15 * TIME.MINUTE,
-  API_MAX_REQUESTS: 100,
+  API_MAX_REQUESTS: 200,
 } as const;
 
 export const SESSION = {
@@ -21,7 +21,7 @@ export const SESSION = {
 } as const;
 
 export const RISK = {
-  IP_VELOCITY_WINDOW_SECONDS: 10 * 60,
+  IP_VELOCITY_WINDOW_SECONDS: 60 * 60,
   IP_VELOCITY_THRESHOLD: 5,
 
   SCORE_IP_VELOCITY: 80,

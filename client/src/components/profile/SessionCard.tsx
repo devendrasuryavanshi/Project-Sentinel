@@ -16,7 +16,7 @@ export const SessionCard = ({
   isRevoking,
 }: Props) => {
   // Simple heuristic for icon
-  const isMobile = session.userAgent.toLowerCase().includes("mobile");
+  const isMobile = session?.userAgent?.toLowerCase().includes("mobile") || false;
 
   return (
     <div
@@ -51,11 +51,11 @@ export const SessionCard = ({
           </div>
           <div>
             <h3 className="text-white font-medium text-lg">
-              {session.deviceName ||
+              {session?.deviceName ||
                 (isMobile ? "Mobile Device" : "Desktop Device")}
             </h3>
             <p className="text-sm text-text-muted break-all max-w-50 md:max-w-xs truncate">
-              {session.userAgent}
+              {session?.userAgent}
             </p>
           </div>
         </div>

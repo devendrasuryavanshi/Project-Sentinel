@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import { UserModel } from "../models/user.model";
 import {
   comparePassword,
-  generateDeviceFingerprint,
   hashPassword,
 } from "../utils/crypto.utils";
 import { extractClientIpAddress } from "../utils/network.utils";
@@ -173,7 +172,7 @@ export class AuthController {
         );
         return response.status(403).json({
           message:
-            "Maximum active sessions reached. Please logout from other devices to continue.",
+            "Maximum active sessions reached. Please logout from other devices to continue. we have sent you an email to revoke sessions from other devices.",
         });
       }
 
@@ -265,7 +264,7 @@ export class AuthController {
         "geo location for user login: " + JSON.stringify(geoLocation)
       );
       const refreshToken = generateRefreshToken();
-      console.log("Generated refresh token: " + refreshToken);
+      logger.info("Generated refresh token: " + refreshToken);
 
       const createdSession = await createUserSession(
         foundUser._id.toString(),
@@ -275,6 +274,7 @@ export class AuthController {
         geoLocation,
         refreshToken
       );
+      logger.info("Created session: " + JSON.stringify(createdSession));
 
       const accessToken = generateAccessToken(
         foundUser,
@@ -303,6 +303,7 @@ export class AuthController {
         },
       });
     } catch (error) {
+      logger.error(error);
       return response.status(500).json({ message: "Login failed" });
     }
   }

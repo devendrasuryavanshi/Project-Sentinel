@@ -39,7 +39,7 @@ export const createUserSession = async (
       $in: [SESSION_STATUS.INACTIVE, SESSION_STATUS.REVOKED],
     },
   })
-    .select("_id refreshToken")
+    .select("_id refreshToken lastActiveAt expireAt")
     .sort({ lastActiveAt: -1 });
 
   /**

@@ -3,15 +3,8 @@ import { HomePage } from "./pages/HomePage";
 import { Navbar } from "./components/layout/Navbar";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
-import { useEffect } from "react";
-import { useAuthStore } from "./store/authStore";
 
 export default function App() {
-  const { hydrate } = useAuthStore();
-
-  useEffect(() => {
-    hydrate();
-  }, []);
   return (
     <div className="min-h-screen bg-sentinel-dark text-sentinel-text font-sans antialiased selection:bg-sentinel-accent">
       <BrowserRouter>

@@ -7,6 +7,7 @@ import { apiRateLimiter } from "./middlewares/rateLimiter.middleware";
 import { authenticate } from "./middlewares/auth.middleware";
 import "./types";
 import { autoGenerateAccessToken } from "./middlewares/token.middleware";
+import { fingerprintMiddleware } from "./middlewares/fingerprint.middleware";
 
 const app = express();
 
@@ -14,7 +15,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(cors({ origin: EnvConfig.CLIENT_URL, credentials: true }));
 
-app.use(apiRateLimiter, autoGenerateAccessToken);
+app.use(apiRateLimiter, fingerprintMiddleware, autoGenerateAccessToken);
 
 app.use("/api", router);
 

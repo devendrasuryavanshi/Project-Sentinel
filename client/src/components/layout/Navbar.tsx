@@ -39,10 +39,10 @@ export const Navbar = () => {
           {/* Nav Links */}
           <div className="hidden md:flex items-center gap-8">
             <Link
-              to="/"
+              to="/profile"
               className="text-text-muted hover:text-white transition-colors font-medium"
             >
-              Home
+              Profile
             </Link>
             <Link
               to="/dashboard"

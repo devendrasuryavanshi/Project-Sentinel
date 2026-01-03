@@ -63,7 +63,7 @@ export const authApi = {
    * @returns {Promise<AuthResponse>} JSON response from the backend containing the user data.
    * @throws {Error} On invalid credentials, expired session, or other errors.
    */
-  me: async (): Promise<meResponse> => {
+  getUserForAuth: async (): Promise<meResponse> => {
     const response = await client.get<meResponse>("/user/me");
     return response.data;
   },

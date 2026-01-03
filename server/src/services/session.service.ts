@@ -17,7 +17,7 @@ import { getDeviceName } from "../helpers/helper";
  * @param {string} userId - The ID of the user.
  * @param {string} ipAddress - The IP address of the user.
  * @param {string} userAgent - The User-Agent of the user.
- * @param {string} deviceFingerprint - The device fingerprint of the user.
+ * @param {string} fingerprint - The device fingerprint of the user.
  * @param {GeoLocation} geoLocation - The geo location of the user.
  * @param {string} refreshToken - The refresh token of the user.
  * @param {boolean} isLegacy - Whether the session is a legacy session.
@@ -28,7 +28,7 @@ export const createUserSession = async (
   userId: string,
   ipAddress: string,
   userAgent: string,
-  deviceFingerprint: string,
+  fingerprint: string,
   geoLocation: GeoLocation,
   refreshToken: string,
   isLegacy: boolean = false
@@ -71,7 +71,7 @@ export const createUserSession = async (
   const newSession = await SessionModel.create({
     userId,
     userAgent,
-    deviceFingerprint,
+    fingerprint,
     deviceName: getDeviceName(userAgent),
     ipFirstSeen: ipAddress,
     ipLastSeen: ipAddress,
@@ -90,7 +90,7 @@ export const createUserSession = async (
     JSON.stringify({
       sessionId: newSession._id.toString(),
       refreshTokenExpiry: newSession.refreshTokenExpiry,
-      deviceFingerprint,
+      fingerprint,
       ipLastSeen: ipAddress,
       ipLastChangedAt: null,
       lastActiveAt: Date.now(),
@@ -205,7 +205,7 @@ export const verifyAndUpdateUserSessionActivity = async (
     JSON.stringify({
       sessionId: session.sessionId,
       refreshTokenExpiry: session.refreshTokenExpiry,
-      deviceFingerprint: session.deviceFingerprint,
+      fingerprint: session.fingerprint,
       ipLastSeen: currentIp,
       ipLastChangedAt: ipChanged ? now : (session.ipLastChangedAt ?? null),
       lastActiveAt: now,

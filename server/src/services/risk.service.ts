@@ -53,7 +53,7 @@ export const evaluateLoginRisk = async (
   // new device
   const hasDevice = await SessionModel.findOne({
     userId,
-    deviceFingerprint: fingerprint,
+    fingerprint,
   });
   if (!hasDevice) {
     score += RISK.SCORE_NEW_DEVICE;

@@ -119,7 +119,6 @@ export class AuthController {
       }
 
       const clientIpAddress = extractClientIpAddress(request);
-      const deviceFingerprint = generateDeviceFingerprint(request);
 
       // OTP-first branch: verifies MFA challenge if user supplied OTP
       if (providedOtp) {
@@ -145,7 +144,7 @@ export class AuthController {
           foundUser._id.toString(),
           foundUser.email,
           clientIpAddress,
-          deviceFingerprint,
+          request.fingerprint,
           userAgentHeader
         );
 
@@ -184,7 +183,7 @@ export class AuthController {
         foundUser._id.toString(),
         clientIpAddress,
         request.headers["user-agent"]?.toString() ?? AUTH.UNKNOWN_USER_AGENT,
-        deviceFingerprint,
+        request.fingerprint,
         geoLocation,
         refreshToken
       );
@@ -217,19 +216,6 @@ export class AuthController {
       });
     } catch (error) {
       return response.status(500).json({ message: "Login failed" });
-    }
-  }
-
-  static async me(request: Request, response: Response): Promise<Response> {
-    try {
-      return response.json({
-        email: request.user?.email,
-        role: request.user?.role,
-      });
-    } catch (error) {
-      return response
-        .status(500)
-        .json({ message: "Failed to fetch user data" });
     }
   }
 

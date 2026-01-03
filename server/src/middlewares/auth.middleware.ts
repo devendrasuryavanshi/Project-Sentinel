@@ -44,10 +44,8 @@ export const authenticate = async (
     const accessToken = request.cookies.accessToken;
     const refreshToken = request.cookies.refreshToken;
     const clientIp = extractClientIpAddress(request);
-    const deviceFingerprint = generateDeviceFingerprint(request);
 
     logger.info(`Authenticating request from IP: ${clientIp}`);
-    logger.info(`Device fingerprint: ${deviceFingerprint}`);
     logger.info(`Access token: ${accessToken}`);
     logger.info(`Refresh token: ${refreshToken}`);
 
@@ -91,7 +89,7 @@ export const authenticate = async (
           user._id.toString(),
           clientIp,
           request.headers["user-agent"] || "Legacy Client",
-          deviceFingerprint,
+          request.fingerprint,
           geoLocation,
           newRefreshToken,
           true
@@ -161,7 +159,7 @@ export const authenticate = async (
      * Detect session hijacking by comparing device fingerprints
      * If mismatch, revoke session and alert user
      */
-    if (sessionData.deviceFingerprint !== deviceFingerprint) {
+    if (sessionData.fingerprint !== request.fingerprint) {
       logger.error(`Session hijack detected for session ${sessionId}`);
       const content = buildSessionHijackDetectedEmail({
         userEmail: user.email,

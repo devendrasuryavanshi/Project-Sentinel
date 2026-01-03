@@ -4,7 +4,7 @@ export interface ISession extends Document {
   userId: mongoose.Types.ObjectId;
   refreshToken: string;
   refreshTokenExpiry?: Date;
-  deviceFingerprint: string;
+  fingerprint: string;
   deviceName?: string;
   ipFirstSeen: string;
   ipLastSeen: string;
@@ -28,7 +28,7 @@ const SessionSchema: Schema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   refreshToken: { type: String, required: true },
   refreshTokenExpiry: { type: Date },
-  deviceFingerprint: { type: String, required: true },
+  fingerprint: { type: String, required: true },
   deviceName: { type: String },
   ipFirstSeen: { type: String, required: true },
   ipLastSeen: { type: String, required: true },

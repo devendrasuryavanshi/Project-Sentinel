@@ -8,6 +8,7 @@ declare global {
     interface Request {
       user?: AuthUser;
       sessionId?: string;
+      fingerprint: string;
     }
   }
 }
